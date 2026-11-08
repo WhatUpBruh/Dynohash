@@ -1,0 +1,35 @@
+
+{
+  "bucket_count": 64,
+  "hash_algorithm": "crc32",
+  "hash_input": "ipv4_5tuple",
+  "traffic_generator_port": 1,
+  "management_bridge_ip": "172.18.50.1",
+  "detectors": [
+    {
+      "id": "d1",
+      "host": "d1",
+      "ip": "10.0.0.11",
+      "mac": "00:00:00:00:00:11",
+      "port": 2,
+      "management_ip": "172.18.50.11"
+    },
+    {
+      "id": "d2",
+      "host": "d2",
+      "ip": "10.0.0.12",
+      "mac": "00:00:00:00:00:12",
+      "port": 3,
+      "management_ip": "172.18.50.12"
+    },
+    {
+      "id": "d3",
+      "host": "d3",
+      "ip": "10.0.0.13",
+      "mac": "00:00:00:00:00:13",
+      "port": 4,
+      "management_ip": "172.18.50.13"
+    }
+  ],
+  "assignment_strategy": "round_robin_initial"
+}

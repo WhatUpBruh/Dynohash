@@ -1,0 +1,20 @@
+{
+  "bucket_count": 64,
+  "hash_algorithm": "crc32",
+  "hash_input": "ipv4_5tuple",
+  "detectors": [
+    {
+      "id": "detector-a",
+      "port": 1
+    },
+    {
+      "id": "detector-b",
+      "port": 2
+    },
+    {
+      "id": "detector-c",
+      "port": 3
+    }
+  ],
+  "assignment_strategy": "round_robin_initial"
+}

@@ -1,0 +1,71 @@
+pkg_info {
+  arch: "v1model"
+}
+tables {
+  preamble {
+    id: 43013012
+    name: "MyIngress.bucket_to_detector"
+    alias: "bucket_to_detector"
+  }
+  match_fields {
+    id: 1
+    name: "meta.bucket_id"
+    bitwidth: 6
+    match_type: EXACT
+  }
+  action_refs {
+    id: 24658602
+  }
+  action_refs {
+    id: 25652968
+  }
+  size: 64
+}
+actions {
+  preamble {
+    id: 24658602
+    name: "MyIngress.forward_to_detector"
+    alias: "forward_to_detector"
+  }
+  params {
+    id: 1
+    name: "port"
+    bitwidth: 9
+  }
+  params {
+    id: 2
+    name: "detector_mac"
+    bitwidth: 48
+  }
+}
+actions {
+  preamble {
+    id: 25652968
+    name: "MyIngress.drop"
+    alias: "drop"
+  }
+}
+counters {
+  preamble {
+    id: 311948450
+    name: "MyIngress.bucket_counter"
+    alias: "bucket_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  size: 64
+}
+counters {
+  preamble {
+    id: 303255642
+    name: "MyIngress.unsupported_counter"
+    alias: "unsupported_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  size: 1
+}
+type_info {
+}

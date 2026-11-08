@@ -1,0 +1,21 @@
+test_bad_configuration (test_controller.ControllerTests) ... ok
+test_boundaries (test_controller.ControllerTests) ... ok
+test_configuration (test_controller.ControllerTests) ... ok
+test_duplicate (test_controller.ControllerTests) ... ok
+test_failed_readback (test_controller.ControllerTests) ... ok
+test_failed_write (test_controller.ControllerTests) ... ok
+test_invalid_buckets (test_controller.ControllerTests) ... ok
+test_missing (test_controller.ControllerTests) ... ok
+test_noop (test_controller.ControllerTests) ... ok
+test_read_assignments (test_controller.ControllerTests) ... ok
+test_unknown_detector (test_controller.ControllerTests) ... ok
+test_unrelated_change (test_controller.ControllerTests) ... ok
+test_update_and_preservation (test_controller.ControllerTests) ... ok
+test_wrong_mac (test_controller.ControllerTests) ... ok
+test_modify_wire_and_decode (test_controller.WireTests) ... ok
+test_write_error_propagates (test_controller.WireTests) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.014s
+
+OK

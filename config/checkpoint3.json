@@ -1,0 +1,12 @@
+{
+  "window_seconds": 5,
+  "threshold_pps": 1000,
+  "minimum_window_seconds": 3,
+  "minimum_packets": 100,
+  "cooldown_seconds": 10,
+  "max_flows": 4096,
+  "max_sources": 1024,
+  "collector_url": "http://172.18.50.1:8080/api/v1/telemetry",
+  "publish_seconds": 1,
+  "http_timeout_seconds": 0.5
+}

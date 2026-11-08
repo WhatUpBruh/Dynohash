@@ -1,0 +1,13 @@
+DynoHash Stage 6A - P4 forwarding program
+Date: 2026-10-18T13:27:52-04:00
+
+Compiler:
+
+Generated files:
+-rw-rw-r-- 1 dynohash dynohash 8.6K Oct 18 13:24 forwarding.json
+-rw-rw-r-- 1 dynohash dynohash 2.0K Oct 18 13:21 forwarding.p4
+-rw-rw-r-- 1 dynohash dynohash  620 Oct 18 13:24 forwarding.p4info.txt
+
+P4Info forwarding resources:
+    name: "MyIngress.ipv4_forward"
+    name: "MyIngress.forward"

@@ -1,0 +1,7 @@
+p4lang-p4c:
+  Installed: 1.2.4.2-3
+  Candidate: 1.2.4.2-3
+  Version table:
+ *** 1.2.4.2-3 500
+        500 https://download.opensuse.org/repositories/home:/p4lang/xUbuntu_22.04  Packages
+        100 /var/lib/dpkg/status
