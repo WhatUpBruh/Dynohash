@@ -23,11 +23,24 @@
 - Checkpoint 3 tests: `.venv/bin/python -m unittest discover -s tests/detectors -v`.
   Audited: 26 Checkpoint 3 tests and 23 existing controller tests pass; syntax passes.
   Collector freshness now preserves age-at-receipt across wall-clock rollback.
-  User reports migration recheck PASSED (bucket 59, four ten-packet phases, restored,
-  same PID). Detector/telemetry live results remain unverified: report directories
-  are unreadable here. See `docs/checkpoint3.md` audit matrix and manual commands.
-  Next: review existing `checkpoint3-*` reports or run the detector exercise in the
-  existing VM topology; do not rerun migration just to establish telemetry behavior.
+  User confirms Checkpoint 3 PASSED live, including detector capture, statistics,
+  alerts, telemetry, normal/high/idle checks and migration regression. Earlier
+  local audit limitations in `docs/checkpoint3.md` are historical evidence.
 - No automatic balancing/migration, dashboard or state transfer in Checkpoint 3.
   Never commit, disrupt existing topology or run cleanup without authorization.
   Explicit fresh-switch provisioning lives in `tools/initialize_checkpoint2.py`.
+- Checkpoint 4: `controller/adaptive.py`, `telemetry_client.py`, `adaptive_cli.py`;
+  settings `config/checkpoint4.json`. Reuses collector GET and Runtime counters;
+  `BucketController.migrate` adds optional expected-assignment/pre-write guards.
+  Dry-run default. Live requires BOTH `--live --acknowledge-state-loss`; no detector
+  history transfer. One action budget by default, freshness/sustained/hysteresis,
+  measured bucket benefit, cooldowns, settling and full-table readback required.
+- User confirms Checkpoints 1/2/3 PASSED live; older Checkpoint 3 audit is historical.
+  Checkpoint 4 verified: 44 adaptive + 23 controller + 26 detector tests pass (93),
+  syntax/whitespace checks pass. Run `.venv/bin/python -m unittest discover -s tests/adaptive -v`.
+  CLI: `.venv/bin/python -m controller.adaptive_cli --iterations 60` (dry-run).
+- Checkpoint 4 LIVE NOT VERIFIED/BLOCKED here (uid 1000, no bridge/visible BMv2).
+  Next: existing-Mininet `tests/topology/checkpoint4_adaptive.py` exercise(net), then
+  explicit live=True/acknowledge_state_loss=True test. It owns one P4Runtime worker,
+  discovers real flow buckets, and restores in finally without overwriting unrelated
+  changes. See `docs/checkpoint4.md`; never provision/restart just to run the test.

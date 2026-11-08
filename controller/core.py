@@ -60,13 +60,17 @@ class BucketController:
     def owner(self, bucket):
         return self.assignments()[bucket_id(bucket)]
 
-    def migrate(self, bucket, detector):
+    def migrate(self, bucket, detector, *, expected_assignments=None, before_write=None):
         bucket_id(bucket)
         if detector not in self.detectors:
             raise ControllerError(f'unknown detector {detector!r}; choose d1, d2, d3')
         before = self.assignments()
+        if expected_assignments is not None and before != expected_assignments:
+            raise ControllerError('assignments changed since decision; no write performed')
         if before[bucket] == detector:
             return False
+        if before_write is not None:
+            before_write()
         try:
             self.transport.modify_bucket(bucket, *self.detectors[detector])
             after = self.assignments()
