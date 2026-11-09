@@ -169,20 +169,17 @@ class StateCoordinator:
                     raise StateTransferError('destination preparation proof differs')
                 event.update(destination_boot_id=prepared['boot_id'], status='prepared')
                 self.save(event)
-                coordinator = self
-                class TrackedRuntime:
-                    def read_buckets(self):
-                        return coordinator.runtime.read_buckets()
-                    def modify_bucket(self, *args):
-                        event['p4_modify_calls'] += 1
-                        event['status'] = 'p4_attempted'
-                        coordinator.save(event)
-                        if before_write is not None:
-                            before_write()  # Recheck after journal I/O, at actual send boundary.
-                        return coordinator.runtime.modify_bucket(*args)
+                event['p4_modify_calls'] += 1
+                event['status'] = 'p4_attempted'
+                self.save(event)
+                # before_write is invoked exactly once, by BucketController.migrate itself
+                # (core.py), immediately before the real switch write and after the journal
+                # save above. It is called outside this method's own try/except, and outside
+                # core.py's write try/except, so a guard rejection keeps its original
+                # exception type (see the except clause below) instead of being laundered.
                 p4_started = time.monotonic()
                 try:
-                    BucketController(TrackedRuntime(), self.detectors).migrate(bucket, destination,
+                    BucketController(self.runtime, self.detectors).migrate(bucket, destination,
                         expected_assignments=event['original_assignments'], before_write=before_write)
                 finally:
                     event['timings_seconds']['p4_transaction'] = time.monotonic()-p4_started
@@ -239,7 +236,15 @@ class StateCoordinator:
                     event['status'] = 'uncertain'
                     event['cleanup_errors'].append('ownership readback: ' + str(read_error))
                 self.save(event)
-            raise StateTransferError(str(exc)) from exc
+            # Only coerce genuine switch/transport failures (ControllerError and its
+            # StateTransferError subclass) into StateTransferError. A guard rejection
+            # (e.g. adaptive.py's TelemetryError raised from before_write) never reached
+            # the switch, so it must keep its original exception type so callers that
+            # branch on exception type (e.g. AdaptiveController.step's except TelemetryError)
+            # see it correctly instead of a generic fault.
+            if isinstance(exc, ControllerError):
+                raise StateTransferError(str(exc)) from exc
+            raise
         finally:
             self.lock.release()
 

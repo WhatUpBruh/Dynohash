@@ -69,6 +69,17 @@ class LocalClient:
                 result = store.handle(operation, body)
             except KeyError as exc:
                 raise StateHTTPError(str(exc), 404)
+            except RuntimeError as exc:
+                # Mirror detectors/state_api.py's do_POST: RuntimeError -> 409.
+                raise StateHTTPError(str(exc), 409)
+            except (ValueError, TypeError) as exc:
+                # Mirror detectors/state_api.py's do_POST: ValueError/TypeError -> 400.
+                # Over real HTTP this is what a malformed/invalid request actually
+                # becomes (HTTPError -> StateHTTPError); this local fixture must
+                # reproduce that translation rather than let it leak as a bare
+                # ValueError, which no longer happens to get masked by a blanket
+                # top-level StateTransferError wrap in StateCoordinator.migrate.
+                raise StateHTTPError(str(exc), 400)
         if self.after:
             self.after(server, operation, body, result)
         return result
@@ -347,8 +358,12 @@ class CoordinationTests(Fixture):
     def test_prewrite_freshness_failure_no_modify(self):
         def stale():
             raise ValueError('telemetry expired')
-        with self.assertRaises(StateTransferError):
+        # The guard's own exception type must survive unwrapped (not laundered into
+        # StateTransferError) so callers like AdaptiveController can branch on it
+        # (e.g. distinguish a soft TelemetryError from a real switch-write failure).
+        with self.assertRaises(ValueError) as caught:
             self.coordinator.migrate(BUCKET, 'd1', before_write=stale)
+        self.assertNotIsInstance(caught.exception, StateTransferError)
         self.assertFalse(self.runtime.writes)
         self.assertFalse(self.stores['d3'].locks)
     def test_unrelated_changes_never_blindly_rolled_back(self):
