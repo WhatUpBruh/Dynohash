@@ -58,12 +58,14 @@ def main():
     parser.add_argument('--config', type=Path, default=ROOT / 'config/checkpoint3.json')
     parser.add_argument('--network-config', type=Path, default=ROOT / 'config/dynohash.json')
     parser.add_argument('--collector-url', help='Override management HTTP endpoint')
+    parser.add_argument('--state-config', type=Path, default=ROOT / 'config/checkpoint5.json')
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
     if args.collector_url:
         config['collector_url'] = args.collector_url
     validate_config(config)
-    detectors = {d['id']: d for d in json.loads(args.network_config.read_text())['detectors']}
+    network = json.loads(args.network_config.read_text())
+    detectors = {d['id']: d for d in network['detectors']}
     if args.server_id not in detectors:
         parser.error('server ID must be configured in network config')
     # Prevent accidental capture of management-plane HTTP traffic.
@@ -75,6 +77,20 @@ def main():
     lock = threading.Lock()
     stats = Statistics(config)
     sender = Sender(config['collector_url'], config['http_timeout_seconds'])
+    state, state_server, state_thread = None, None, None
+    from detectors.bucket_state import StateStore, load_state_config
+    state_config = load_state_config(args.state_config)
+    if state_config['enabled']:
+        from detectors.bucket_hash import verify_evidence
+        from detectors.state_api import make_state_server
+        evidence = Path(state_config['attribution_evidence'])
+        if not evidence.is_absolute():
+            evidence = ROOT / evidence
+        attribution = verify_evidence(evidence)
+        state = StateStore(args.server_id, state_config, config, attribution)
+        address = detectors[args.server_id]['management_ip']
+        peers = [network['management_bridge_ip']] + [d['management_ip'] for d in detectors.values()]
+        state_server = make_state_server((address, state_config['port']), state, peers)
     signal.signal(signal.SIGINT, lambda *_: stopped.set())
     signal.signal(signal.SIGTERM, lambda *_: stopped.set())
 
@@ -83,6 +99,8 @@ def main():
             start = time.monotonic()
             with lock:
                 payload = stats.snapshot(args.server_id)
+            if state is not None:
+                state.tick()
             delivered = sender.send(payload)
             print(json.dumps(dict(telemetry=payload, delivered=delivered,
                                   telemetry_failures=sender.failures), allow_nan=False), flush=True)
@@ -94,6 +112,10 @@ def main():
         capture.settimeout(.2)
         worker = threading.Thread(target=publish, name='telemetry', daemon=True)
         worker.start()
+        if state_server is not None:
+            state_thread = threading.Thread(target=state_server.serve_forever,
+                                            kwargs={'poll_interval': .2}, daemon=True)
+            state_thread.start()
         print('[%s] Listening on %s' % (args.server_id, args.interface), flush=True)
         try:
             while not stopped.is_set():
@@ -107,9 +129,15 @@ def main():
                 if parsed:
                     with lock:
                         stats.observe(*parsed)
+                    if state is not None:
+                        state.observe(*parsed)
         finally:
             stopped.set()
             worker.join(timeout=config['http_timeout_seconds'] + 3)
+            if state_thread is not None:
+                state_server.shutdown()
+                state_server.server_close()
+                state_thread.join(timeout=3)
     print('[%s] Stopped' % args.server_id, flush=True)
 
 

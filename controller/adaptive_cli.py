@@ -15,12 +15,13 @@ def main(argv=None, runtime_factory=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', default=str(DEFAULT_PATH))
     parser.add_argument('--network-config', default=str(ROOT / 'config/dynohash.json'))
+    parser.add_argument('--state-config', default=str(ROOT / 'config/checkpoint5.json'))
     parser.add_argument('--address', default='127.0.0.1:50051')
     parser.add_argument('--device-id', type=int, default=0)
     parser.add_argument('--iterations', type=int, default=60)
     parser.add_argument('--live', action='store_true')
     parser.add_argument('--acknowledge-state-loss', action='store_true',
-                        help='Accept that detector flow/alert history is NOT transferred')
+                        help='Accept imperfect detector-state continuity; optional transfer is best-effort')
     args = parser.parse_args(argv)
     if not 1 <= args.iterations <= 10000:
         parser.error('iterations must be 1..10000')
@@ -31,6 +32,8 @@ def main(argv=None, runtime_factory=None):
     try:
         config = load_settings(args.config)
         detectors = load_config(args.network_config)
+        from detectors.bucket_state import load_state_config
+        state_config = load_state_config(args.state_config)
         client = TelemetryClient(config['collector_url'], config['http_timeout_seconds'])
         if runtime_factory is None:
             from .runtime import Runtime
@@ -38,8 +41,12 @@ def main(argv=None, runtime_factory=None):
         for sig in (signal.SIGINT, signal.SIGTERM):
             old_signals[sig] = signal.signal(sig, lambda *_: stopped.set())
         with runtime_factory(args.address, args.device_id) as runtime:
+            migrator = None
+            if state_config['enabled'] and args.live:
+                from .state_transfer import make_coordinator
+                migrator = make_coordinator(runtime, detectors, args.network_config, state_config)
             adaptive = AdaptiveController(runtime, client, config, detectors, live=args.live,
-                                          acknowledge_state_loss=args.acknowledge_state_loss)
+                                          acknowledge_state_loss=args.acknowledge_state_loss, migrator=migrator)
             for _ in range(args.iterations):
                 if stopped.is_set():
                     break

@@ -125,11 +125,12 @@ def select_candidate(loads, rates, owners, config, now, bucket_actions):
 
 class AdaptiveController:
     def __init__(self, runtime, collector, config, detectors, *, live=False,
-                 acknowledge_state_loss=False, monotonic=time.monotonic, wall=time.time):
+                 acknowledge_state_loss=False, monotonic=time.monotonic, wall=time.time, migrator=None):
         if live and not acknowledge_state_loss:
             raise ValueError('live migration requires explicit acknowledgement of detector state loss')
         self.runtime, self.collector, self.config = runtime, collector, config
         self.buckets = BucketController(runtime, detectors)
+        self.migrator = migrator if migrator is not None else self.buckets
         self.live = live
         self.monotonic, self.wall = monotonic, wall
         self.previous = None
@@ -279,7 +280,7 @@ class AdaptiveController:
                 # the whole table and preserves unrelated entries. No auto retry.
                 write_attempted = True
                 self.attempted_candidate = dict(candidate)
-                changed = self.buckets.migrate(candidate['bucket'], candidate['destination'],
+                changed = self.migrator.migrate(candidate['bucket'], candidate['destination'],
                                                expected_assignments=confirmed.owners, before_write=final_guard)
                 if not changed:
                     raise ControllerError('unexpected migration no-op after confirmation')
@@ -290,6 +291,8 @@ class AdaptiveController:
                 self.expected = expected
                 self.previous = None
                 result.update(status='migrated', reason='one MODIFY; full-table readback verified')
+                if self.migrator is not self.buckets:
+                    result['state_transfer'] = self.migrator.last_event
             else:
                 result.update(status='proposed', reason='dry-run: no write performed')
             now = self.monotonic()

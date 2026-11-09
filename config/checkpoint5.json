@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "port": 8091,
+  "http_timeout_seconds": 0.5,
+  "max_snapshot_age_seconds": 30,
+  "max_body_bytes": 131072,
+  "max_records": 128,
+  "record_retention_seconds": 120,
+  "max_flows_per_bin": 128,
+  "journal_directory": "logs/checkpoint5-transfers",
+  "attribution_evidence": "logs/checkpoint5-hash.json"
+}

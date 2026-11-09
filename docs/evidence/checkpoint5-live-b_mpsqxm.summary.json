@@ -1,0 +1,82 @@
+{
+  "scope": "Reviewed normal live scenario only; not an atomic/exactly-once/lossless guarantee",
+  "status": "PASSED",
+  "failure_injection": null,
+  "source_reports": {
+    "report.json": {
+      "original_path": "logs/checkpoint5-live-b_mpsqxm/report.json",
+      "reviewed_copy_sha256": "20e27340aceba8520a98ec5c6164f94bd0c1114e8ff14a3569b54daf68c7aebb"
+    },
+    "worker-report.json": {
+      "original_path": "logs/checkpoint5-live-b_mpsqxm/worker-report.json",
+      "reviewed_copy_sha256": "66bd56498e59ac8cbde0876c0effaa5434cebac9ef99d5adb142fe1fa145b90c"
+    }
+  },
+  "flow": [
+    "10.0.0.1",
+    "10.0.1.100",
+    40009,
+    9002,
+    17
+  ],
+  "bucket_id": 57,
+  "source": "d1",
+  "destination": "d2",
+  "initial_state": {
+    "packets": 20,
+    "bytes": 1480
+  },
+  "continued_destination_state": {
+    "packets": 40,
+    "bytes": 2960
+  },
+  "initial_counter_deltas": {
+    "bucket_57": 20,
+    "other_buckets_sum": 0
+  },
+  "forward": {
+    "transfer_id": "4a437c5a-fd44-4a67-9f0e-31406312b1e3",
+    "status": "complete",
+    "p4_modify_calls": 1,
+    "snapshot_digest": "7ae81f1d820843f053d37fed6dfe7e091ec4bf735ab8627167350745e97316bf",
+    "ownership_verified": true,
+    "state_verified": true,
+    "import_proof": {
+      "imported_packets_total": 20,
+      "imported_bytes_total": 1480,
+      "imported_flow_bin_records": 2
+    }
+  },
+  "restoration": {
+    "transfer_id": "5482a87d-225a-4700-881a-77da4c044219",
+    "source": "d2",
+    "destination": "d1",
+    "status": "complete",
+    "p4_modify_calls": 1,
+    "ownership_verified": true,
+    "state_verified": true,
+    "restored": true,
+    "original_assignments_count": 64,
+    "full_original_assignments_match": true
+  },
+  "switch_pids_before": [
+    "33226"
+  ],
+  "switch_pids_after": [
+    "33226"
+  ],
+  "cleanup_errors": {
+    "parent": [],
+    "worker": [],
+    "forward": [],
+    "reverse": []
+  },
+  "not_verified_live": [
+    "failure injection scenarios",
+    "adaptive-loop candidate selection",
+    "nonempty alert-history handoff",
+    "detector reboot recovery",
+    "arbitrary flows/builds",
+    "exactly-once, atomic or lossless migration"
+  ]
+}

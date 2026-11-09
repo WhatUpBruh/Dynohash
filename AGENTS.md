@@ -44,3 +44,28 @@
   explicit live=True/acknowledge_state_loss=True test. It owns one P4Runtime worker,
   discovers real flow buckets, and restores in finally without overwriting unrelated
   changes. See `docs/checkpoint4.md`; never provision/restart just to run the test.
+- Checkpoint 5 baseline: user identifies Checkpoints 1–4 as verified; the older
+  Checkpoint 4 restricted-run result above is historical, not a new live verdict.
+- Checkpoint 5 opt-in: `config/checkpoint5.json` defaults disabled. `bucket_hash.py`
+  uses the exact 13-byte tuple; installed BMv2 PHV/BufBuilder/CRC oracle matched
+  10,107 vectors/all 64 buckets. Evidence fingerprints and live device-JSON equality
+  are required; no P4/topology change. Original telemetry keeps per_bucket=null.
+- `bucket_state.py`/`state_api.py`: bounded bucket-local existing Statistics state,
+  management-IP bind/peer allowlist, UUID prepare/commit/status/abort/finalize;
+  no raw packets, no source deletion. `controller/state_transfer.py` wraps the
+  existing migration with journaling, ownership reconciliation and import proof.
+  `state_cli.py` provides explicit inspect/reconcile/abort recovery.
+- Adaptive CLI accepts `--state-config`; live still requires both safety flags.
+  Disabled mode is Checkpoint 4; dry-run makes no state requests/mutations.
+- Checkpoint 5: `.venv/bin/python -m unittest discover -s tests/state -v` (requires
+  generated hash evidence). Verified 35 new + 93 existing tests pass, syntax passes.
+  See `docs/checkpoint5.md` for exact offline oracle/setup/recovery/live commands.
+  Reviewed live normal scenario PASSED: `logs/checkpoint5-live-b_mpsqxm` report pair,
+  bucket 57 d1 -> d2 -> d1; source 20 packets/1480 bytes, destination continued to
+  40/2960; full 64-entry restoration, PID 33226 unchanged, no cleanup errors.
+  See `docs/evidence/checkpoint5-live-b_mpsqxm.summary.json`. Failure-injection and
+  adaptive-loop live runs remain unverified by that evidence. Best-effort only.
+- Live harness: `tests/topology/checkpoint5_state.py` exercise requires enabled
+  agents/config and allow_live=True; supports five explicit failure scenarios and
+  guarded reverse-state restoration. Preserve all reports; never infer live success
+  from offline parity, fake P4 tests or a failure-scenario pass alone.
