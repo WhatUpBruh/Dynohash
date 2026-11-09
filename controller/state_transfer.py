@@ -169,18 +169,27 @@ class StateCoordinator:
                     raise StateTransferError('destination preparation proof differs')
                 event.update(destination_boot_id=prepared['boot_id'], status='prepared')
                 self.save(event)
-                event['p4_modify_calls'] += 1
-                event['status'] = 'p4_attempted'
-                self.save(event)
-                # before_write is invoked exactly once, by BucketController.migrate itself
-                # (core.py), immediately before the real switch write and after the journal
-                # save above. It is called outside this method's own try/except, and outside
-                # core.py's write try/except, so a guard rejection keeps its original
-                # exception type (see the except clause below) instead of being laundered.
+                def guarded_write():
+                    # Run the caller's own freshness/benefit guard first. Only once it
+                    # passes do we journal "a write is about to be attempted" — right
+                    # before BucketController.migrate sends the real MODIFY. This way a
+                    # guard rejection never marks p4_modify_calls, so the transfer is not
+                    # wrongly treated as "P4 was already attempted" and does not need to
+                    # be aborted/retried under a new transfer ID.
+                    if before_write is not None:
+                        before_write()
+                    event['p4_modify_calls'] += 1
+                    event['status'] = 'p4_attempted'
+                    self.save(event)
+                # guarded_write is invoked exactly once, by BucketController.migrate itself
+                # (core.py), immediately before the real switch write. It is called outside
+                # this method's own try/except, and outside core.py's write try/except, so a
+                # guard rejection keeps its original exception type (see the except clause
+                # below) instead of being laundered.
                 p4_started = time.monotonic()
                 try:
                     BucketController(self.runtime, self.detectors).migrate(bucket, destination,
-                        expected_assignments=event['original_assignments'], before_write=before_write)
+                        expected_assignments=event['original_assignments'], before_write=guarded_write)
                 finally:
                     event['timings_seconds']['p4_transaction'] = time.monotonic()-p4_started
                 event['status'] = 'p4_verified'

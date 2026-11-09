@@ -366,6 +366,10 @@ class CoordinationTests(Fixture):
         self.assertNotIsInstance(caught.exception, StateTransferError)
         self.assertFalse(self.runtime.writes)
         self.assertFalse(self.stores['d3'].locks)
+        # A guard rejection never reached the switch, so it must not be journaled as
+        # an attempted MODIFY (which would otherwise block reusing this transfer ID).
+        self.assertEqual(self.coordinator.last_event['p4_modify_calls'], 0)
+        self.assertEqual(self.coordinator.last_event['status'], 'aborted')
     def test_unrelated_changes_never_blindly_rolled_back(self):
         self.runtime.failure = 'unrelated'
         with self.assertRaises(StateTransferError):
