@@ -1,8 +1,8 @@
-# DynoHash
+# Project Canopy
 
 **Flow-affine packet distribution and adaptive detector load balancing with P4.**
 
-DynoHash is a network research prototype built with P4, BMv2, P4Runtime, Python,
+Canopy(dynohash for this repositories purpose) is a network research prototype built with P4, BMv2, P4Runtime, Python,
 and Mininet. It distributes IPv4 TCP/UDP traffic across three detector servers,
 collects traffic statistics, and evaluates whether moving a traffic bucket would
 improve the load distribution.
