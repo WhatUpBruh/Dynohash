@@ -1,5 +1,6 @@
 """Best-effort staged state transfer coordinated with the existing P4 transaction."""
 from http.client import HTTPException
+import fcntl
 import json
 from pathlib import Path
 import tempfile
@@ -59,6 +60,37 @@ def network_client(network_path, config):
     return StateClient(endpoints, config['http_timeout_seconds'], config['max_body_bytes'])
 
 
+class _CoordinatorLock:
+    """Excludes overlapping migrations both within this process and across
+    separate processes sharing the same journal directory, by backing the
+    in-process lock with an flock on a file inside that journal."""
+
+    def __init__(self, journal):
+        self._thread_lock = threading.Lock()
+        self._lock_path = journal / '.coordinator.lock'
+        self._file = None
+
+    def acquire(self, blocking=False):
+        if not self._thread_lock.acquire(blocking=blocking):
+            return False
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        file = open(self._lock_path, 'w')
+        try:
+            fcntl.flock(file.fileno(), fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+        except OSError:
+            file.close()
+            self._thread_lock.release()
+            return False
+        self._file = file
+        return True
+
+    def release(self):
+        fcntl.flock(self._file.fileno(), fcntl.LOCK_UN)
+        self._file.close()
+        self._file = None
+        self._thread_lock.release()
+
+
 class StateCoordinator:
     def __init__(self, runtime, detectors, client, config, attribution_id, *, journal=None, pipeline_validator=None):
         if config['enabled'] is not True:
@@ -69,7 +101,7 @@ class StateCoordinator:
         if not self.journal.is_absolute():
             self.journal = ROOT / self.journal
         self.last_event = None
-        self.lock = threading.Lock()
+        self.lock = _CoordinatorLock(self.journal)
         self.pipeline_validator = pipeline_validator
 
     def save(self, event):
