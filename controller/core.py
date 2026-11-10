@@ -41,6 +41,7 @@ class BucketController:
     def __init__(self, transport, detectors):
         self.transport = transport
         self.detectors = detectors
+        self.last_event = None
 
     def assignments(self):
         result = {}

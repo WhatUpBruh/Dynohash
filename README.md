@@ -23,17 +23,25 @@ reported separately.
 | 2 — Manual migration | Single-bucket migration with full-table readback and preservation of unrelated assignments | **PASSED live**; 23 controller tests pass |
 | 3 — Detection and telemetry | Packet capture, rolling statistics, heuristic alerts, HTTP collector | **PASSED live**, confirmed in the project baseline; 26 tests pass |
 | 4 — Adaptive controller | Sustained load evaluation, measured bucket selection, dry-run and explicitly enabled automatic migration | **Implemented**; 44 tests pass; live verification awaits review of a passing end-to-end report |
-| 5 — Detector state transfer | Preserve detection history when a bucket moves | **Planned; not implemented** |
+| 5 — Detector state transfer | Preserve detection history when a bucket moves | **Implemented, best-effort**; reviewed live normal scenario PASSED; failure-injection and live adaptive-loop scenarios not yet established |
 
-The latest recorded automated run has **93 passing tests, zero failures, and zero
-errors**. Syntax and whitespace checks also passed. These are recorded results,
-not a claim that tests run automatically whenever this README is opened.
+The latest recorded automated run has **128 passing tests** (93 from Checkpoints 2-4
+plus 35 from Checkpoint 5), **zero failures, and zero errors**. Syntax and whitespace
+checks also passed. These are recorded results, not a claim that tests run
+automatically whenever this README is opened.
 
 Checkpoint 4's accessible validation summary records live execution as **BLOCKED /
 LIVE NOT VERIFIED** in the restricted development environment. Additional local
 live-report directories exist, but their contents were not readable during this
 documentation review. A branch name or commit message alone does not establish a
 live pass. See [Checkpoint 4](docs/checkpoint4.md) for evidence requirements.
+
+Checkpoint 5's reviewed live normal scenario (bucket 57, `d1 -> d2 -> d1`, full
+64-entry restoration, unchanged BMv2 PID, no cleanup errors) **PASSED**; see
+[Checkpoint 5](docs/checkpoint5.md) and `docs/evidence/checkpoint5-live-b_mpsqxm.summary.json`.
+Failure-injection and live adaptive-loop integration scenarios are not established
+by that evidence. State transfer remains best-effort: not atomic, exactly-once, or
+lossless.
 
 ## How it works
 
@@ -274,19 +282,24 @@ cd ~/dynohash
 .venv/bin/python -m unittest discover -s tests/controller -v
 .venv/bin/python -m unittest discover -s tests/detectors -v
 .venv/bin/python -m unittest discover -s tests/adaptive -v
+.venv/bin/python -m unittest discover -s tests/state -v
 ```
+
+The Checkpoint 5 suite requires generated hash evidence (`tools/verify_checkpoint5_hash.py`)
+and will error on two attribution tests without it; see [Checkpoint 5](docs/checkpoint5.md).
 
 | Suite | Latest recorded passing count |
 | --- | ---: |
 | Checkpoint 2/controller | 23 |
 | Checkpoint 3/detectors and HTTP | 26 |
 | Checkpoint 4/adaptive | 44 |
-| **Total** | **93** |
+| Checkpoint 5/state transfer | 35 |
+| **Total** | **128** |
 
 Syntax and whitespace checks:
 
 ```bash
-.venv/bin/python -m compileall -q controller detectors tests/controller tests/detectors tests/adaptive tests/topology/checkpoint2_migration.py tests/topology/checkpoint3_detection.py tests/topology/checkpoint4_adaptive.py tests/topology/checkpoint4_worker.py tools/initialize_checkpoint2.py
+.venv/bin/python -m compileall -q controller detectors tests/controller tests/detectors tests/adaptive tests/state tests/topology/checkpoint2_migration.py tests/topology/checkpoint3_detection.py tests/topology/checkpoint4_adaptive.py tests/topology/checkpoint4_worker.py tests/topology/checkpoint5_state.py tests/topology/checkpoint5_worker.py tools/initialize_checkpoint2.py tools/verify_checkpoint5_hash.py
 git diff --check
 ```
 
@@ -338,8 +351,9 @@ it starts and cleans up its own services. See the checkpoint documents for detai
 | [`config/dynohash.json`](config/dynohash.json) | Detector IDs, ports, MACs and management addresses |
 | [`config/checkpoint3.json`](config/checkpoint3.json) | Detector window, threshold, cooldown and telemetry endpoint |
 | [`config/checkpoint4.json`](config/checkpoint4.json) | Adaptive thresholds, freshness, cooldowns and migration limits |
-| [`controller/`](controller/) | Manual migration, P4Runtime adapter, adaptive policy and CLI |
-| [`detectors/`](detectors/) | Capture, bounded statistics, telemetry sender and collector |
+| [`config/checkpoint5.json`](config/checkpoint5.json) | State-transfer feature settings, disabled by default |
+| [`controller/`](controller/) | Manual migration, P4Runtime adapter, adaptive policy, state-transfer coordinator and CLIs |
+| [`detectors/`](detectors/) | Capture, bounded statistics, telemetry sender/collector, opt-in state API |
 | [`tests/`](tests/) | Unit/HTTP tests and existing-topology live harnesses |
 | [`tools/`](tools/) | Explicit fresh-switch provisioning and environment records |
 | [`docs/`](docs/) | Detailed checkpoint architecture, commands and evidence |
@@ -361,9 +375,9 @@ load balancing is separate from the detector's suspicious-traffic flag.
   warmup. Reported rates use the actual reported duration.
 - Exact Python/BMv2 CRC32 parity is unverified. Detector `per_bucket` is `null`;
   adaptive bucket estimates come from the switch's counters.
-- State transfer is not implemented. Migration can split flow observations and
-  interrupt detection-history continuity. Checkpoint 5 must coordinate a portable
-  state model, ownership handoff and recovery with the detection-server owner.
+- State transfer (Checkpoint 5) is implemented but best-effort: not atomic,
+  exactly-once, or lossless. Only the reviewed normal live scenario has passed;
+  failure-injection and live adaptive-loop integration scenarios remain unverified.
 - Adaptive decisions assume recent traffic predicts near-future demand. Cooldowns
   are process-local, and counter resets/invalid timing can inhibit decisions.
 - HTTP telemetry and localhost gRPC are intended for an isolated lab. Authentication,
@@ -374,6 +388,7 @@ load balancing is separate from the detector's suspicious-traffic flag.
 - [Checkpoint 2 — Manual bucket migration](docs/checkpoint2.md)
 - [Checkpoint 3 — Detection server and telemetry](docs/checkpoint3.md)
 - [Checkpoint 4 — Adaptive load evaluation and migration](docs/checkpoint4.md)
+- [Checkpoint 5 — Detector state transfer](docs/checkpoint5.md)
 - [Repository conventions and verified progress](AGENTS.md)
 
 Older checkpoint notes preserve historical blocked attempts. Use their later audit
