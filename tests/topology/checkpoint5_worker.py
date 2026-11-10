@@ -92,8 +92,14 @@ def main():
                                 raise
                             value = dict(status='injected_failure', error=str(exc), event=coordinator.last_event)
                     elif command == 'reconcile':
-                        coordinator.migrate(touched[0], touched[1], transfer_id_value=transaction)
-                        value = dict(status='migrated', event=coordinator.last_event)
+                        if touched is None:
+                            value = dict(status='error', error='reconcile requested before any migrate')
+                        else:
+                            try:
+                                coordinator.migrate(touched[0], touched[1], transfer_id_value=transaction)
+                                value = dict(status='migrated', event=coordinator.last_event)
+                            except Exception as exc:
+                                value = dict(status='injected_failure', error=str(exc), event=coordinator.last_event)
                     elif command == 'quit':
                         value = dict(status='quitting')
                     else:
