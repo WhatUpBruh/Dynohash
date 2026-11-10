@@ -1,5 +1,6 @@
 """Best-effort staged state transfer coordinated with the existing P4 transaction."""
 from http.client import HTTPException
+import fcntl
 import json
 from pathlib import Path
 import tempfile
@@ -59,6 +60,37 @@ def network_client(network_path, config):
     return StateClient(endpoints, config['http_timeout_seconds'], config['max_body_bytes'])
 
 
+class _CoordinatorLock:
+    """Excludes overlapping migrations both within this process and across
+    separate processes sharing the same journal directory, by backing the
+    in-process lock with an flock on a file inside that journal."""
+
+    def __init__(self, journal):
+        self._thread_lock = threading.Lock()
+        self._lock_path = journal / '.coordinator.lock'
+        self._file = None
+
+    def acquire(self, blocking=False):
+        if not self._thread_lock.acquire(blocking=blocking):
+            return False
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        file = open(self._lock_path, 'w')
+        try:
+            fcntl.flock(file.fileno(), fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+        except OSError:
+            file.close()
+            self._thread_lock.release()
+            return False
+        self._file = file
+        return True
+
+    def release(self):
+        fcntl.flock(self._file.fileno(), fcntl.LOCK_UN)
+        self._file.close()
+        self._file = None
+        self._thread_lock.release()
+
+
 class StateCoordinator:
     def __init__(self, runtime, detectors, client, config, attribution_id, *, journal=None, pipeline_validator=None):
         if config['enabled'] is not True:
@@ -69,7 +101,7 @@ class StateCoordinator:
         if not self.journal.is_absolute():
             self.journal = ROOT / self.journal
         self.last_event = None
-        self.lock = threading.Lock()
+        self.lock = _CoordinatorLock(self.journal)
         self.pipeline_validator = pipeline_validator
 
     def save(self, event):
@@ -169,21 +201,27 @@ class StateCoordinator:
                     raise StateTransferError('destination preparation proof differs')
                 event.update(destination_boot_id=prepared['boot_id'], status='prepared')
                 self.save(event)
-                coordinator = self
-                class TrackedRuntime:
-                    def read_buckets(self):
-                        return coordinator.runtime.read_buckets()
-                    def modify_bucket(self, *args):
-                        event['p4_modify_calls'] += 1
-                        event['status'] = 'p4_attempted'
-                        coordinator.save(event)
-                        if before_write is not None:
-                            before_write()  # Recheck after journal I/O, at actual send boundary.
-                        return coordinator.runtime.modify_bucket(*args)
+                def guarded_write():
+                    # Run the caller's own freshness/benefit guard first. Only once it
+                    # passes do we journal "a write is about to be attempted" — right
+                    # before BucketController.migrate sends the real MODIFY. This way a
+                    # guard rejection never marks p4_modify_calls, so the transfer is not
+                    # wrongly treated as "P4 was already attempted" and does not need to
+                    # be aborted/retried under a new transfer ID.
+                    if before_write is not None:
+                        before_write()
+                    event['p4_modify_calls'] += 1
+                    event['status'] = 'p4_attempted'
+                    self.save(event)
+                # guarded_write is invoked exactly once, by BucketController.migrate itself
+                # (core.py), immediately before the real switch write. It is called outside
+                # this method's own try/except, and outside core.py's write try/except, so a
+                # guard rejection keeps its original exception type (see the except clause
+                # below) instead of being laundered.
                 p4_started = time.monotonic()
                 try:
-                    BucketController(TrackedRuntime(), self.detectors).migrate(bucket, destination,
-                        expected_assignments=event['original_assignments'], before_write=before_write)
+                    BucketController(self.runtime, self.detectors).migrate(bucket, destination,
+                        expected_assignments=event['original_assignments'], before_write=guarded_write)
                 finally:
                     event['timings_seconds']['p4_transaction'] = time.monotonic()-p4_started
                 event['status'] = 'p4_verified'
@@ -239,7 +277,15 @@ class StateCoordinator:
                     event['status'] = 'uncertain'
                     event['cleanup_errors'].append('ownership readback: ' + str(read_error))
                 self.save(event)
-            raise StateTransferError(str(exc)) from exc
+            # Only coerce genuine switch/transport failures (ControllerError and its
+            # StateTransferError subclass) into StateTransferError. A guard rejection
+            # (e.g. adaptive.py's TelemetryError raised from before_write) never reached
+            # the switch, so it must keep its original exception type so callers that
+            # branch on exception type (e.g. AdaptiveController.step's except TelemetryError)
+            # see it correctly instead of a generic fault.
+            if isinstance(exc, ControllerError):
+                raise StateTransferError(str(exc)) from exc
+            raise
         finally:
             self.lock.release()
 

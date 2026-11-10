@@ -92,8 +92,25 @@ def main():
                                 raise
                             value = dict(status='injected_failure', error=str(exc), event=coordinator.last_event)
                     elif command == 'reconcile':
-                        coordinator.migrate(touched[0], touched[1], transfer_id_value=transaction)
-                        value = dict(status='migrated', event=coordinator.last_event)
+                        if touched is None:
+                            value = dict(status='error', error='reconcile requested before any migrate')
+                        else:
+                            # Mirrors controller/state_cli.py's reconcile: recovery never
+                            # issues a fresh P4 MODIFY. Only proceed (to finish remaining
+                            # RPC steps via readback) when the switch already shows the
+                            # intended destination; otherwise a prior write never actually
+                            # reached the switch and must not be resent here.
+                            expected = dict(original)
+                            expected[touched[0]] = touched[1]
+                            if buckets.assignments() != expected:
+                                value = dict(status='error',
+                                             error='actual ownership is not the intended destination; no recovery write issued')
+                            else:
+                                try:
+                                    coordinator.migrate(touched[0], touched[1], transfer_id_value=transaction)
+                                    value = dict(status='migrated', event=coordinator.last_event)
+                                except Exception as exc:
+                                    value = dict(status='injected_failure', error=str(exc), event=coordinator.last_event)
                     elif command == 'quit':
                         value = dict(status='quitting')
                     else:
