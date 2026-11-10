@@ -291,7 +291,7 @@ class AdaptiveController:
                 self.expected = expected
                 self.previous = None
                 result.update(status='migrated', reason='one MODIFY; full-table readback verified')
-                if self.migrator is not self.buckets:
+                if self.migrator.last_event is not None:
                     result['state_transfer'] = self.migrator.last_event
             else:
                 result.update(status='proposed', reason='dry-run: no write performed')
