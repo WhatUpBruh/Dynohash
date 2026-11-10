@@ -114,14 +114,31 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r tools/p4runtime-requirements.txt
 ```
 
-The requirements file records the Python dependency environment; it does not
-install Mininet, BMv2, or the P4 compiler. No turnkey system installer is provided.
+The requirements file records the Python dependency environment. `make init`
+(see below) additionally installs Mininet, BMv2, and the P4 compiler.
 
 ## Running the project
 
 Commands below assume the repository is checked out at `~/dynohash` and that each
 terminal starts in that directory. Commands labeled **Mininet CLI** are entered at
 the `mininet>` prompt; ordinary shell commands run in a separate VM terminal.
+
+### Quick start with `make`
+
+Run `make init` once (creates `.venv`, installs the pinned Python dependencies, and
+installs Mininet/BMv2/p4c for the detected Ubuntu release). Then each of the three
+regular terminals below has a matching target:
+
+| Terminal | Purpose | Command |
+| --- | --- | --- |
+| A | Topology | `make topology` |
+| B | Collector | `make collector` |
+| C | Adaptive controller (dry-run) | `make adaptive` |
+| C | Adaptive controller (live) | `make adaptive-live` |
+
+This covers steps 1, 3, and 5 below. The one-time empty-switch provisioning (step 2)
+and starting detectors from the Mininet CLI (step 4) are still manual, since they run
+inside an already-open terminal/CLI rather than as a standalone command.
 
 ### 1. Start the topology — regular terminal A
 
